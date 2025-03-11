@@ -6,7 +6,8 @@ import Image from 'next/image';
 // Define TypeScript interfaces for Nimiq
 interface NimiqClient {
   disconnect: () => Promise<void>;
-  // Add other client methods as needed
+  getBlockNumber: () => Promise<number>;
+  // Remove the getHeadBlock method as it doesn't exist
 }
 
 export default function NimiqClient() {
@@ -14,6 +15,7 @@ export default function NimiqClient() {
   const [client, setClient] = useState<NimiqClient | null>(null);
   const [status, setStatus] = useState<'initializing' | 'loading' | 'connected' | 'error'>('initializing');
   const [error, setError] = useState<string | null>(null);
+  const [blockNumber, setBlockNumber] = useState<number | null>(null);
 
   useEffect(() => {
     const initNimiq = async () => {
@@ -34,6 +36,10 @@ export default function NimiqClient() {
         // Type cast the client to our interface
         setClient(nimiqClient as unknown as NimiqClient);
         setStatus('connected');
+
+        // Get initial block number using getBlockNumber
+        const currentBlockNumber = await nimiqClient.getHeadBlock();
+        setBlockNumber(currentBlockNumber.height);
       } catch (err: unknown) {
         console.error('Failed to initialize Nimiq:', err);
         // Properly handle the unknown type
@@ -58,6 +64,29 @@ export default function NimiqClient() {
     };
   }, []);
 
+  // Update block number periodically
+  useEffect(() => {
+    if (status !== 'connected' || !client) return;
+
+    const updateBlockNumber = async () => {
+      try {
+        // Use getBlockNumber since getHeadBlock is not available
+        const currentBlock = await client.getBlockNumber();
+        setBlockNumber(currentBlock);
+      } catch (err) {
+        console.error('Error fetching block number:', err);
+      }
+    };
+
+    // Update immediately, then set interval
+    updateBlockNumber();
+    
+    // Poll every 10 seconds
+    const interval = setInterval(updateBlockNumber, 10000);
+    
+    return () => clearInterval(interval);
+  }, [client, status]);
+
   return (
     <div className="p-4 border rounded-lg bg-black/[.05] dark:bg-white/[.06]">
       <div className="flex items-center gap-3 mb-3">
@@ -76,7 +105,14 @@ export default function NimiqClient() {
       <div className="text-sm font-[family-name:var(--font-geist-mono)]">
         {status === 'initializing' && <p>Initializing Nimiq client...</p>}
         {status === 'loading' && <p>Connecting to Nimiq network...</p>}
-        {status === 'connected' && <p className="text-green-600">Connected to Nimiq network!</p>}
+        {status === 'connected' && (
+          <div>
+            <p className="text-green-600">Connected to Nimiq network!</p>
+            {blockNumber !== null && (
+              <p className="mt-1">Current block: <span className="font-medium">{blockNumber.toLocaleString()}</span></p>
+            )}
+          </div>
+        )}
         {status === 'error' && (
           <p className="text-red-500">
             Error: {error || 'Failed to connect to Nimiq'}
