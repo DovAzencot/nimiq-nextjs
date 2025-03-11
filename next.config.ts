@@ -1,13 +1,7 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        '@nimiq/core': '@nimiq/core/bundler/index.js',
-      },
-    },
-  },
   webpack: (config, { isServer }) => {
     // Enable WebAssembly
     config.experiments = {
@@ -20,6 +14,22 @@ const nextConfig: NextConfig = {
       test: /\.wasm$/,
       type: 'webassembly/async',
     });
+    
+    // Enhanced module resolution for @nimiq/core
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve?.alias,
+        '@nimiq/core': path.resolve('./node_modules/@nimiq/core/bundler/index.js'),
+      },
+      fallback: {
+        ...config.resolve?.fallback,
+        path: false,
+        fs: false,
+      },
+      // Add .js extension for ESM imports
+      extensions: [...(config.resolve?.extensions || []), '.js', '.mjs'],
+    };
     
     return config;
   },
