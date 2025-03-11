@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import * as Nimiq from '@nimiq/core';
 
@@ -19,8 +19,8 @@ interface HeadChangeEvent {
 }
 
 export default function NimiqClient() {
-  // Use proper typing for the client state
-  const [client, setClient] = useState<Nimiq.Client | null>(null);
+  // Use a ref instead of state to store the client object
+  const clientRef = useRef<Nimiq.Client | null>(null);
   const [status, setStatus] = useState<'initializing' | 'loading' | 'connected' | 'error'>('initializing');
   const [error, setError] = useState<string | null>(null);
   const [headChanges, setHeadChanges] = useState<HeadChangeEvent[]>([]);
@@ -55,8 +55,8 @@ export default function NimiqClient() {
         );
         
         setListenerId(id);
-        // Type cast the client to our interface
-        setClient(nimiqClient);
+        // Store the client in the ref instead of state
+        clientRef.current = nimiqClient;
         setStatus('connected');
 
       } catch (err: unknown) {
@@ -75,8 +75,8 @@ export default function NimiqClient() {
     
     // Clean up listener on unmount
     return () => {
-      if (client && listenerId !== null) {
-        client.removeListener(listenerId).catch(console.error);
+      if (clientRef.current && listenerId !== null) {
+        clientRef.current.removeListener(listenerId).catch(console.error);
       }
     };
   }, []);
