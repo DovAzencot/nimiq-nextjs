@@ -15,7 +15,6 @@ export default function NimiqClient() {
   const [client, setClient] = useState<NimiqClient | null>(null);
   const [status, setStatus] = useState<'initializing' | 'loading' | 'connected' | 'error'>('initializing');
   const [error, setError] = useState<string | null>(null);
-  const [blockNumber, setBlockNumber] = useState<number | null>(null);
 
   useEffect(() => {
     const initNimiq = async () => {
@@ -37,9 +36,6 @@ export default function NimiqClient() {
         setClient(nimiqClient as unknown as NimiqClient);
         setStatus('connected');
 
-        // Get initial block number using getBlockNumber
-        const currentBlockNumber = await nimiqClient.getHeadBlock();
-        setBlockNumber(currentBlockNumber.height);
       } catch (err: unknown) {
         console.error('Failed to initialize Nimiq:', err);
         // Properly handle the unknown type
@@ -72,7 +68,6 @@ export default function NimiqClient() {
       try {
         // Use getBlockNumber since getHeadBlock is not available
         const currentBlock = await client.getBlockNumber();
-        setBlockNumber(currentBlock);
       } catch (err) {
         console.error('Error fetching block number:', err);
       }
@@ -108,9 +103,6 @@ export default function NimiqClient() {
         {status === 'connected' && (
           <div>
             <p className="text-green-600">Connected to Nimiq network!</p>
-            {blockNumber !== null && (
-              <p className="mt-1">Current block: <span className="font-medium">{blockNumber.toLocaleString()}</span></p>
-            )}
           </div>
         )}
         {status === 'error' && (
