@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import * as Nimiq from '@nimiq/core';
 
 // Define TypeScript interfaces for Nimiq
 interface NimiqClient {
   disconnect: () => Promise<void>;
-  getBlockNumber: () => Promise<number>;
   // Remove the getHeadBlock method as it doesn't exist
 }
 
@@ -20,10 +20,8 @@ export default function NimiqClient() {
     const initNimiq = async () => {
       try {
         setStatus('loading');
-        // Dynamically import Nimiq core
-        const Nimiq = await import('@nimiq/core');
         
-        // Create a configuration builder
+        // Create a configuration builder with direct import
         const config = new Nimiq.ClientConfiguration();
         
         // Set network to testnet (you can change this as needed)
@@ -60,27 +58,6 @@ export default function NimiqClient() {
     };
   }, []);
 
-  // Update block number periodically
-  useEffect(() => {
-    if (status !== 'connected' || !client) return;
-
-    const updateBlockNumber = async () => {
-      try {
-        // Use getBlockNumber since getHeadBlock is not available
-        const currentBlock = await client.getBlockNumber();
-      } catch (err) {
-        console.error('Error fetching block number:', err);
-      }
-    };
-
-    // Update immediately, then set interval
-    updateBlockNumber();
-    
-    // Poll every 10 seconds
-    const interval = setInterval(updateBlockNumber, 10000);
-    
-    return () => clearInterval(interval);
-  }, [client, status]);
 
   return (
     <div className="p-4 border rounded-lg bg-black/[.05] dark:bg-white/[.06]">
