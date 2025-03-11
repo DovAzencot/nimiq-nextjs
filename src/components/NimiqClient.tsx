@@ -7,14 +7,24 @@ import * as Nimiq from '@nimiq/core';
 // Define TypeScript interfaces for Nimiq
 interface NimiqClient {
   disconnect: () => Promise<void>;
-  // Remove the getHeadBlock method as it doesn't exist
+}
+
+// Define interface for head change events
+interface HeadChangeEvent {
+  hash: string;
+  reason: string;
+  revertedBlocks: string[];
+  adoptedBlocks: string[];
+  timestamp: number;
 }
 
 export default function NimiqClient() {
   // Use proper typing for the client state
-  const [client, setClient] = useState<NimiqClient | null>(null);
+  const [client, setClient] = useState<Nimiq.Client | null>(null);
   const [status, setStatus] = useState<'initializing' | 'loading' | 'connected' | 'error'>('initializing');
   const [error, setError] = useState<string | null>(null);
+  const [headChanges, setHeadChanges] = useState<HeadChangeEvent[]>([]);
+  const [listenerId, setListenerId] = useState<number | null>(null);
 
   useEffect(() => {
     const initNimiq = async () => {
@@ -30,8 +40,23 @@ export default function NimiqClient() {
         // Initialize the client
         const nimiqClient = await Nimiq.Client.create(config.build());
         
+        // Set up head change listener
+        const id = await nimiqClient.addHeadChangedListener(
+          (hash, reason, revertedBlocks, adoptedBlocks) => {
+            const event: HeadChangeEvent = {
+              hash,
+              reason,
+              revertedBlocks,
+              adoptedBlocks,
+              timestamp: Date.now()
+            };
+            setHeadChanges(prev => [event, ...prev].slice(0, 10)); // Keep last 10 events
+          }
+        );
+        
+        setListenerId(id);
         // Type cast the client to our interface
-        setClient(nimiqClient as unknown as NimiqClient);
+        setClient(nimiqClient);
         setStatus('connected');
 
       } catch (err: unknown) {
@@ -48,16 +73,13 @@ export default function NimiqClient() {
 
     initNimiq();
     
-    // Cleanup function
+    // Clean up listener on unmount
     return () => {
-      if (client) {
-        client.disconnect().catch((err: unknown) => {
-          console.error('Error disconnecting:', err);
-        });
+      if (client && listenerId !== null) {
+        client.removeListener(listenerId).catch(console.error);
       }
     };
   }, []);
-
 
   return (
     <div className="p-4 border rounded-lg bg-black/[.05] dark:bg-white/[.06]">
@@ -80,6 +102,27 @@ export default function NimiqClient() {
         {status === 'connected' && (
           <div>
             <p className="text-green-600">Connected to Nimiq network!</p>
+            
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Blockchain Head Changes</h4>
+              {headChanges.length === 0 ? (
+                <p className="text-gray-500 text-xs">Waiting for blockchain updates...</p>
+              ) : (
+                <div className="max-h-60 overflow-auto">
+                  {headChanges.map((event, index) => (
+                    <div key={`${event.hash}-${event.timestamp}`} className="mb-2 p-2 border border-gray-200 rounded text-xs">
+                      <p>Hash: <span className="font-medium">{event.hash.substring(0, 10)}...</span></p>
+                      <p>Reason: <span className="font-medium">{event.reason}</span></p>
+                      <p>Reverted blocks: {event.revertedBlocks.length}</p>
+                      <p>Adopted blocks: {event.adoptedBlocks.length}</p>
+                      <p className="text-gray-400 mt-1">
+                        {new Date(event.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {status === 'error' && (
